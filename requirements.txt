@@ -6,3 +6,4 @@ openai
 azure-cognitiveservices-speech 
 scikit-learn
 requests
+python-dotenv

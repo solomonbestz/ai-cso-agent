@@ -3,13 +3,22 @@ import pickle
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 from langchain_classic.agents import AgentExecutor, Tool
-# from langchain_classic.chains import LLMChain
 from langchain_classic.prompts import PromptTemplate
 import azure.cognitiveservices.speech as speech
 from langchain_classic.agents.mrkl.base import ZeroShotAgent
 
+from tools import *
+
 
 load_dotenv()
+
+
+accounts = {
+        "001": {"name": "Ini", "balance": 200000},
+        "002": {"name": "Bolu", "balance": 420000},
+        "003": {"name": "Ebuks", "balance": 300000},
+        "004": {"name": "Daniel", "balance": 250000}
+    }
 
 def classify_intent(text: str):
     model_api_endpoint = os.getenv("model_endpoint")
@@ -33,19 +42,11 @@ def azure_llm():
         azure_deployment="gpt-4o-mini"
     )
 
-
     return llm
 
-def extract_account_id(text: str):
-    import re
-    match = re.search(r'\b(\d{3})\b', text)
-    return match.group(1) if match else None
-
-
 def check_balance(account_id: str):
-    # llm = azure_llm()
-    acct = accounts.get(extract_account_id(account_id))
-
+    acct = accounts.get(account_id, None)
+    print(acct)
     if not acct:
         return {'error': "Account not found"}
     return {'account_id': account_id, "balance": acct['balance']}
@@ -53,41 +54,20 @@ def check_balance(account_id: str):
 def report_card_issue(account_id: str):
     return {"status": "blocked", "account_id": account_id, "next_step": "Collect new card in 48 hrs"}
 
+def unsupported(text: str):
+    return {"status": "Unsupported"}
 
-classify_tool = Tool(
-    name="IntentClassifier",
-    func=classify_intent,
-    description="Classifies user intent in a banking conversation."
-)
 
-balance_tool = Tool(
-    name="CheckBalance",
-    func=check_balance,
-    description="Returns account balance for a given account_id"
-)
-
-card_tool = Tool(
-    name="report_card_issue",
-    func=report_card_issue,
-    description="Block a card and return next steps"
-)
 
 if __name__=="__main__":
-    accounts = {
-        "001": {"name": "Ini", "balance": 200000},
-        "002": {"name": "Bolu", "balance": 420000},
-        "003": {"name": "Ebuks", "balance": 300000},
-        "004": {"name": "Daniel", "balance": 250000}
-    }
-
-
     llm = azure_llm()
-    tools = [classify_tool, balance_tool, card_tool]
+    tools = [classify_tool, balance_tool, card_tool, unsupported_tool]
 
     prompt_agent = """You are a banking assistant. You MUST follow these steps:
 
-    1. First, ALWAYS use the IntentClassifier tool to understand the user's intent
+    
     2. Then, based on the classified intent, use the appropriate tool
+    3. If the user does not provide an account number, ask them to
 
     User query: {input}
 
@@ -107,7 +87,7 @@ if __name__=="__main__":
         handle_parsing_errors=True
     )
 
-    result = agent_executor.invoke({"input":"I lost my ATM card. My account is 001. Plese block it"})
+    result = agent_executor.invoke({"input":"How much do i have left?"})
 
     print(result["output"])
     
